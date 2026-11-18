@@ -51,16 +51,24 @@ begin
   return t;
 end $$;
 
-create or replace function public.fit_steps(p_secret text, p_date text, p_steps numeric)
+create or replace function public.fit_steps(p_secret text, p_date text default null, p_steps numeric default null)
 returns text
 language plpgsql security definer set search_path = public as $$
+declare d date; m text[];
 begin
   if not fit_check(p_secret) then raise exception 'no autorizado'; end if;
-  if p_date !~ '^\d{4}-\d{2}-\d{2}$' then raise exception 'fecha inválida'; end if;
+  if p_steps is null then raise exception 'faltan los pasos'; end if;
+  m := regexp_match(coalesce(p_date,''), '(\d{4})-(\d{1,2})-(\d{1,2})');
+  if m is not null then d := make_date(m[1]::int, m[2]::int, m[3]::int);
+  else
+    m := regexp_match(coalesce(p_date,''), '(\d{1,2})/(\d{1,2})/(\d{4})');
+    if m is not null then d := make_date(m[3]::int, m[2]::int, m[1]::int);
+    else d := (now() at time zone 'America/Argentina/San_Juan')::date; end if;
+  end if;
   insert into fit_docs (id, body, updated_at)
-    values ('s-' || p_date, jsonb_build_object('date', p_date, 'steps', round(p_steps)), clock_timestamp())
+    values ('s-' || d::text, jsonb_build_object('date', d::text, 'steps', round(p_steps)), clock_timestamp())
     on conflict (id) do update set body = excluded.body, updated_at = excluded.updated_at;
-  return 'ok ' || p_date || ': ' || round(p_steps) || ' pasos';
+  return 'ok ' || d::text || ': ' || round(p_steps) || ' pasos (fecha recibida: ' || coalesce(p_date,'ninguna') || ')';
 end $$;
 
 grant execute on function public.fit_init(text), public.fit_pull(text, timestamptz),
