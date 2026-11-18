@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#0b1220"/>
+  <circle cx="256" cy="220" r="150" fill="#121c30"/>
+  <path d="M150 330 L215 285 L265 305 L360 240" fill="none" stroke="#fb7185" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/><path d="M332 236 L362 238 L356 268" fill="none" stroke="#fb7185" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+  <g transform="translate(0 -22) rotate(-30 256 220)">
+    <rect x="156" y="208" width="200" height="24" rx="10" fill="#8aa0bd"/>
+    <rect x="118" y="150" width="40" height="140" rx="14" fill="#2dd4bf"/>
+    <rect x="160" y="172" width="26" height="96" rx="10" fill="#60a5fa"/>
+    <rect x="354" y="150" width="40" height="140" rx="14" fill="#2dd4bf"/>
+    <rect x="326" y="172" width="26" height="96" rx="10" fill="#60a5fa"/>
+  </g>
+  <text x="256" y="438" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-weight="800" font-size="104" letter-spacing="6" fill="#e6edf7">F<tspan fill="#2dd4bf">I</tspan>T</text>
+</svg>
