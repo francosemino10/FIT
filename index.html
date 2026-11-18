@@ -165,7 +165,7 @@ const BASE_MEALS_DEF=[{"id":"bm-bowl","name":"Bowl proteico","items":[["Proteín
 const MEALS=[['desayuno','Desayuno'],['almuerzo','Almuerzo'],['merienda','Merienda'],['cena','Cena']];
 const DEFAULT_CONFIG={routines:[1,2,3,4].map(i=>({id:'r'+i,name:'Rutina '+i,exercises:[]})),goals:{kcal:2500,p:150,c:280,f:80,steps:10000}};
 
-const S={mode:'loading',col:null,config:clone(DEFAULT_CONFIG),foods:[],meals:[],days:{},workouts:{},body:{},bodyMetric:'chest',bodyDraft:{},
+const S={mode:'loading',col:null,config:clone(DEFAULT_CONFIG),foods:[],meals:[],days:{},workouts:{},body:{},health:{},bodyMetric:'chest',bodyDraft:{},
   date:iso(new Date()),tab:'hoy',routine:'r1',wdraft:{},cfgDraft:null,
   progEx:'',progMetric:'max',themePref:null,sample:null,sampleImages:false,sheet:null,pendingRender:false,charts:[],libq:''};
 
@@ -263,6 +263,59 @@ function applyTheme(){const t=currentTheme();document.documentElement.dataset.th
   const b=document.getElementById('thbtn');if(b)b.innerHTML=t==='oceano'?MOON:SUN;}
 const cssv=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 
+/* ---------- sincronización (versión instalable) ---------- */
+const SB={"url": "https://tzdaagppnnneyjekkffr.supabase.co", "key": "sb_publishable_x-9D6Xzdh1VOASrIrHD2Uw_JUTCdnGf"};
+const SYNC={secret:null,last:null,pending:{},busy:false,again:false,status:'',err:null,at:null,t:null};
+function syncLoad(){try{const o=JSON.parse(localStorage.getItem('fit-sync')||'{}');SYNC.secret=o.secret||null;SYNC.last=o.last||null;SYNC.pending=o.pending||{};SYNC.at=o.at||null}catch(e){}}
+function syncSave(){try{localStorage.setItem('fit-sync',JSON.stringify({secret:SYNC.secret,last:SYNC.last,pending:SYNC.pending,at:SYNC.at}))}catch(e){}}
+const syncOn=()=>IS_PWA&&!!SB.url&&!!SYNC.secret;
+async function rpc(fn,args){const hd={'apikey':SB.key,'Content-Type':'application/json'};if(SB.key.startsWith('eyJ'))hd.Authorization='Bearer '+SB.key;
+  const r=await fetch(SB.url.replace(/\/$/,'')+'/rest/v1/rpc/'+fn,{method:'POST',headers:hd,body:JSON.stringify(args)});
+  const txt=await r.text();if(!r.ok){let m=txt;try{m=JSON.parse(txt).message||txt}catch(e){}throw new Error(m||('HTTP '+r.status))}
+  return txt?JSON.parse(txt):null}
+function scheduleSync(ms=1500){if(!syncOn())return;clearTimeout(SYNC.t);SYNC.t=setTimeout(syncNow,ms)}
+async function syncNow(){
+  if(!syncOn())return;if(SYNC.busy){SYNC.again=true;return}
+  if(!navigator.onLine){SYNC.status='Sin conexión';return}
+  SYNC.busy=true;let changed=false;
+  try{
+    const rows=await rpc('fit_pull',{p_secret:SYNC.secret,p_since:SYNC.last})||[];
+    for(const row of rows){
+      if(!SYNC.last||row.updated_at>SYNC.last)SYNC.last=row.updated_at;
+      if(SYNC.pending[row.id])continue;
+      const cur=localStore[row.id]===undefined?null:localStore[row.id];
+      if(JSON.stringify(cur)===JSON.stringify(row.body))continue;
+      if(row.body===null)delete localStore[row.id];else localStore[row.id]=row.body;
+      applyDoc(row.id,row.body);changed=true;
+    }
+    if(changed)persistLocal();
+    for(const id of Object.keys(SYNC.pending)){
+      const body=localStore[id]===undefined?null:localStore[id];
+      await rpc('fit_push',{p_secret:SYNC.secret,p_id:id,p_body:body});
+      delete SYNC.pending[id];
+    }
+    SYNC.at=new Date().toISOString();SYNC.err=null;SYNC.status='ok';
+  }catch(e){SYNC.err=String(e.message||e);SYNC.status='error'}
+  syncSave();SYNC.busy=false;
+  if(changed)scheduleRender();else if(S.tab==='ajustes')scheduleRender();
+  if(SYNC.again){SYNC.again=false;scheduleSync(500)}
+}
+function persistLocal(){try{localStorage.setItem('fit-data',JSON.stringify(localStore))}catch(e){toast('No se pudo guardar en este celular')}}
+function newSecret(){const a=new Uint8Array(24);crypto.getRandomValues(a);return Array.from(a,b=>b.toString(16).padStart(2,'0')).join('')}
+async function syncActivate(secret){
+  const s=secret||newSecret();
+  const ok=await rpc('fit_init',{p_secret:s});
+  if(!ok)return false;
+  SYNC.secret=s;SYNC.last=null;
+  if(!secret)Object.keys(localStore).forEach(k=>SYNC.pending[k]=true);
+  syncSave();await syncNow();return true;
+}
+if(IS_PWA){
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')scheduleSync(300)});
+  window.addEventListener('online',()=>scheduleSync(300));
+  setInterval(()=>{if(document.visibilityState==='visible')scheduleSync(0)},180000);
+}
+
 /* ---------- storage ---------- */
 const writes={};
 let localStore={};
@@ -272,13 +325,14 @@ function applyDoc(id,b){
   if(id==='meals'){S.meals=b&&Array.isArray(b.items)?b.items:[];return}
   if(id.startsWith('d-')){const d=id.slice(2);if(b)S.days[d]=b;else delete S.days[d];return}
   if(id.startsWith('w-')){if(b)S.workouts[id]=b;else delete S.workouts[id];return}
+  if(id.startsWith('s-')){const d=id.slice(2);if(b&&b.steps!=null)S.health[d]=b.steps;else delete S.health[d];return}
   if(id.startsWith('b-')){const d=id.slice(2);if(b)S.body[d]=b;else delete S.body[d];return}
 }
 async function writeOnce(id,b){if(b===null)await S.col.doc(id).delete();else await S.col.doc(id).set(b)}
 async function save(id,body){
   body=body===null?null:clone(body);
   applyDoc(id,body);
-  if(S.mode==='local'){if(body===null)delete localStore[id];else localStore[id]=body;try{localStorage.setItem('fit-data',JSON.stringify(localStore))}catch(e){toast('No se pudo guardar en este navegador')}return}
+  if(S.mode==='local'){if(body===null)delete localStore[id];else localStore[id]=body;persistLocal();if(syncOn()){SYNC.pending[id]=true;syncSave();scheduleSync()}return}
   if(S.mode!=='db'){toast('Todavía cargando, probá de nuevo');return}
   const w=writes[id]||(writes[id]={busy:false,has:false,next:null});
   w.next=body;w.has=true;if(w.busy)return;w.busy=true;
@@ -301,6 +355,7 @@ async function init(){
   S.mode='local';
   try{localStore=JSON.parse(localStorage.getItem('fit-data')||'{}')}catch(e){localStore={}}
   Object.entries(localStore).forEach(([k,v])=>applyDoc(k,v));
+  syncLoad();scheduleSync(200);
   try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}catch(e){}
   if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{})}
   render();
@@ -313,6 +368,7 @@ function scheduleRender(){
 document.addEventListener('focusout',()=>{setTimeout(()=>{if(S.pendingRender){const a=document.activeElement;if(!(a&&$('#view').contains(a)&&/INPUT|TEXTAREA|SELECT/.test(a.tagName))){S.pendingRender=false;render()}}},50)});
 
 /* ---------- data helpers ---------- */
+function getSteps(d){const m=S.days[d]?.steps;return m!=null?m:(S.health[d]??null)}
 function getDay(d){const x=S.days[d];const base={kind:'day',date:d,meals:{desayuno:[],almuerzo:[],merienda:[],cena:[]},steps:null};
   if(!x)return base;const c=clone(x);c.meals={...base.meals,...(c.meals||{})};return c}
 function itemTot(it){const q=it.qty??1;return{kcal:(it.kcal||0)*q,p:(it.p||0)*q,c:(it.c||0)*q,f:(it.f||0)*q}}
@@ -365,10 +421,10 @@ function viewHoy(){
     h+=`<div class="row"><button class="add" data-act="open-add" data-meal="${k}">+ Agregar alimento</button>
       ${!list.length?`<button class="linkbtn" data-act="copy-yday" data-meal="${k}" style="white-space:nowrap">Repetir de ayer</button>`:`<button class="linkbtn" data-act="tpl-new" data-meal="${k}" style="white-space:nowrap">☆ Guardar comida</button>`}</div></div>`;
   }
-  const st=day.steps;
+  const st=getSteps(S.date),hs=S.health[S.date];
   h+=`<div class="sec">Pasos</div><div class="card"><div class="row"><div class="sp"><div class="steps-n">${st!=null?fmt(st):'—'}</div>
-    <div class="mut small">Objetivo ${fmt(g.steps)} pasos</div></div>
-    <input id="stepsin" type="number" inputmode="numeric" placeholder="Pasos" value="${st??''}" style="width:130px;text-align:center"></div>
+    <div class="mut small">Objetivo ${fmt(g.steps)} pasos${hs!=null?` · <span style="color:var(--acc2)">${day.steps!=null?`Salud: ${fmt(hs)} (usás el manual)`:'sincronizado desde Salud'}</span>`:''}</div></div>
+    <input id="stepsin" type="number" inputmode="numeric" placeholder="${hs!=null?fmt(hs):'Pasos'}" value="${day.steps??''}" style="width:130px;text-align:center"></div>
     <div class="bar"><i style="width:${pct(st||0,g.steps)}%;background:var(--acc2)"></i></div></div>`;
   return h;
 }
@@ -538,7 +594,7 @@ function viewProgreso(){
     <div class="stat"><div><div class="l">Prom. kcal (7d)</div><div class="v">${av?fmt(av.kcal/last7.length):'—'}</div><div class="l">obj. ${fmt(g.kcal)}</div></div>
     <div><div class="l">Prom. proteína</div><div class="v">${av?r0(av.p/last7.length)+' g':'—'}</div><div class="l">obj. ${r0(g.p)} g</div></div>
     <div><div class="l">Días cargados</div><div class="v">${last7.length}/7</div><div class="l">esta semana</div></div></div></div>`;
-  const s30=[...Array(30)].map((_,i)=>addDays(today,i-29)),stepsVals=s30.map(d=>S.days[d]?.steps??null);
+  const s30=[...Array(30)].map((_,i)=>addDays(today,i-29)),stepsVals=s30.map(d=>getSteps(d));
   const s7=stepsVals.slice(-7).filter(v=>v!=null),hit=stepsVals.filter(v=>v!=null&&v>=g.steps).length;
   h+=`<div class="sec">Pasos · últimos 30 días</div><div class="card"><div class="chartbox"><canvas id="chSteps"></canvas></div>
     <div class="stat"><div><div class="l">Prom. 7 días</div><div class="v">${s7.length?fmt(s7.reduce((a,b)=>a+b,0)/s7.length):'—'}</div></div>
@@ -567,7 +623,7 @@ function drawCharts(){
   const sc=$('#chSteps');
   if(sc){const ds=[...Array(30)].map((_,i)=>addDays(today,i-29));
     S.charts.push(new Chart(sc,{data:{labels:ds.map(shortDate),datasets:[
-      {type:'bar',label:'Pasos',data:ds.map(d=>S.days[d]?.steps??null),backgroundColor:ds.map(d=>(S.days[d]?.steps??0)>=g.steps?OK:A2),borderRadius:4},
+      {type:'bar',label:'Pasos',data:ds.map(d=>getSteps(d)),backgroundColor:ds.map(d=>(getSteps(d)??0)>=g.steps?OK:A2),borderRadius:4},
       {type:'line',label:'Objetivo',data:ds.map(()=>g.steps),borderColor:F,borderDash:[5,4],pointRadius:0,borderWidth:1.5}]},
       options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{labels:{boxWidth:12}}},scales:{x:{ticks:{maxTicksLimit:6}},y:{beginAtZero:true}}}}))}
 }
@@ -601,6 +657,15 @@ function viewAjustes(){
     <div id="liblist">${libRows(libList())}</div><div class="mut small" style="margin-top:8px">Si editás uno de la lista base se guarda una copia tuya con tus valores.</div></div>`;
   h+=`<div class="sec">Comidas guardadas (${allMeals().length})</div><div class="card">${allMeals().length?allMeals().map(t=>`<div class="frow" data-act="tpl-edit" data-id="${t.id}">${foodIcon(t.items[0]?.name||'')}<div class="sp"><div style="font-weight:600">${esc(t.name)}</div><div class="mline">${t.items.length} alimentos · ${fmt(sumItems(t.items).kcal)} kcal</div></div><span class="mut">›</span></div>`).join('')
     :'<div class="empty">Se guardan desde la pantalla Hoy con «☆ Guardar comida».</div>'}</div>`;
+  if(IS_PWA&&SB.url){
+    const st=SYNC.secret?(SYNC.status==='error'?`<span style="color:var(--bad)">Error: ${esc(SYNC.err)}</span>`:SYNC.at?`Última sincronización: ${new Date(SYNC.at).toLocaleString('es-AR',{day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit'})}${Object.keys(SYNC.pending).length?` · ${Object.keys(SYNC.pending).length} pendientes`:''}`:'Conectando…'):'Desactivada';
+    h+=`<div class="sec">Sincronización en la nube</div><div class="card"><div class="row"><div class="sp"><div style="font-weight:600">${SYNC.secret?'☁ Activada':'Desactivada'}</div><div class="mut small">${st}</div></div></div>
+      <div class="mut small" style="margin-top:8px">Guarda una copia de todo en tu base de Supabase y recibe los pasos de Salud desde Atajos.</div>
+      ${SYNC.secret?`<div style="margin-top:10px"><button class="btn" data-act="sync-now">Sincronizar ahora</button></div>
+        <div style="margin-top:8px"><button class="btn sec2" data-act="sync-keys">Datos para el atajo de pasos</button></div>`
+      :`<div style="margin-top:10px"><button class="btn" data-act="sync-on">Activar sincronización</button></div>
+        <div style="margin-top:8px"><button class="btn sec2" data-act="sync-have">Ya tengo una clave (otro celular)</button></div>`}</div>`;
+  }
   h+=`<div class="sec">Datos y respaldo</div><div class="card"><div class="mut small">${IS_PWA?'Tus datos se guardan solo en este celular. Descargá un respaldo cada tanto (por ejemplo a Archivos o iCloud) para no perderlos.':'Copiá un respaldo de todos tus datos para guardarlo o pasarlo a la versión instalable.'}</div>
     ${IS_PWA?`<div style="margin-top:10px"><button class="btn" data-act="export-file">Descargar respaldo</button></div>`:''}
     <div style="margin-top:8px"><button class="btn sec2" data-act="export">Copiar respaldo</button></div>
@@ -663,6 +728,16 @@ function renderSheet(){
       <div class="card" style="margin-top:10px;background:var(--card2)"><div class="mline" style="font-size:14px">Total: ${macroLine(sumItems(t.items))}</div></div>
       <button class="btn" data-act="tpl-save">Guardar</button>
       ${S.meals.some(m=>m.id===t.id)||t.baseId?`<div style="margin-top:8px"><button class="btn danger" data-act="tpl-del">Eliminar comida guardada</button></div>`:''}`}
+  else if(s.type==='synckeys'){title='Datos para el atajo de pasos';
+    const ep=SB.url.replace(/\/$/,'')+'/rest/v1/rpc/fit_steps';
+    const fld=(l,v,k)=>`<label class="lb">${l}</label><div class="row"><input readonly value="${esc(v)}" style="font-family:monospace;font-size:12px"><button class="btn sec2 sm" data-act="copy-val" data-k="${k}">Copiar</button></div>`;
+    body=`<div class="mut small">Copiá cada valor en el atajo de Atajos tal como te indica Claude. La <b>clave secreta</b> es como una contraseña: no la compartas.</div>
+      ${fld('URL (Obtener contenido de URL)',ep,'url')}${fld('Encabezado apikey',SB.key,'key')}${fld('Clave secreta (p_secret)',SYNC.secret,'secret')}`}
+  else if(s.type==='syncsecret'){title='Pegar clave existente';
+    body=`<div class="mut small">Si ya activaste la sincronización en otro celular, pegá acá la clave secreta de ese celular (Ajustes → Datos para el atajo de pasos).</div>
+      <input id="secin" style="margin-top:10px;font-family:monospace" placeholder="clave secreta">
+      ${s.err?`<div class="small" style="color:var(--bad);margin-top:8px">${esc(s.err)}</div>`:''}
+      <div style="margin-top:12px"><button class="btn" data-act="sync-use">Conectar</button></div>`}
   else if(s.type==='restore'){title='Restaurar respaldo';
     body=`<div class="mut small">Pegá el respaldo copiado${IS_PWA?' o elegí el archivo descargado':''}. Se suma a lo que ya tenés (los días repetidos se reemplazan).</div>
       ${IS_PWA?`<label class="lb">Archivo</label><input type="file" id="rstfile" accept=".json,application/json,text/plain">`:''}
@@ -736,6 +811,13 @@ document.addEventListener('click',async ev=>{
   if(act==='sheet-bg'){if(ev.target===el)closeSheet();return}
   switch(act){
     case 'close':closeSheet();break;
+    case 'sync-on':{el.disabled=true;el.textContent='Activando…';try{const ok=await syncActivate();if(!ok){openSheet({type:'syncsecret',err:'Tu base ya tiene una clave de otro celular. Pegala acá.'});break}toast('Sincronización activada');}catch(e){toast('No se pudo conectar: '+(e.message||e))}render();break}
+    case 'sync-have':openSheet({type:'syncsecret'});break;
+    case 'sync-use':{const v=($('#secin').value||'').trim();if(v.length<24){s.err='La clave es muy corta.';renderSheet();return}
+      el.disabled=true;try{const ok=await syncActivate(v);if(!ok){s.err='Esa clave no coincide con la de tu base.';el.disabled=false;renderSheet();return}closeSheet();toast('Conectado');render()}catch(e){s.err=String(e.message||e);el.disabled=false;renderSheet()}break}
+    case 'sync-now':{el.disabled=true;el.textContent='Sincronizando…';await syncNow();render();toast(SYNC.status==='ok'?'Sincronizado':'No se pudo sincronizar');break}
+    case 'sync-keys':openSheet({type:'synckeys'});break;
+    case 'copy-val':{const k=el.dataset.k,v=k==='url'?SB.url.replace(/\/$/,'')+'/rest/v1/rpc/fit_steps':k==='key'?SB.key:SYNC.secret;try{await navigator.clipboard.writeText(v);toast('Copiado')}catch(e){toast('No se pudo copiar')}break}
     case 'body-metric':S.bodyMetric=el.dataset.k;render();break;
     case 'body-save':{const g=el.dataset.g,dr=S.bodyDraft[S.date]||{},keys=g==='w'?['weight']:BODY.slice(1).map(b=>b[0]);
       const b={...(S.body[S.date]?clone(S.body[S.date]):{}),kind:'body',date:S.date};let any=false;
