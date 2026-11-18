@@ -54,21 +54,27 @@ end $$;
 create or replace function public.fit_steps(p_secret text, p_date text default null, p_steps numeric default null)
 returns text
 language plpgsql security definer set search_path = public as $$
-declare d date; m text[];
+declare d date; m text[]; prev numeric; hoy date := (now() at time zone 'America/Argentina/San_Juan')::date;
 begin
   if not fit_check(p_secret) then raise exception 'no autorizado'; end if;
   if p_steps is null then raise exception 'faltan los pasos'; end if;
-  m := regexp_match(coalesce(p_date,''), '(\d{4})-(\d{1,2})-(\d{1,2})');
-  if m is not null then d := make_date(m[1]::int, m[2]::int, m[3]::int);
+  if lower(trim(coalesce(p_date,''))) = 'ayer' then d := hoy - 1;
   else
-    m := regexp_match(coalesce(p_date,''), '(\d{1,2})/(\d{1,2})/(\d{4})');
-    if m is not null then d := make_date(m[3]::int, m[2]::int, m[1]::int);
-    else d := (now() at time zone 'America/Argentina/San_Juan')::date; end if;
+    m := regexp_match(coalesce(p_date,''), '(\d{4})-(\d{1,2})-(\d{1,2})');
+    if m is not null then d := make_date(m[1]::int, m[2]::int, m[3]::int);
+    else
+      m := regexp_match(coalesce(p_date,''), '(\d{1,2})/(\d{1,2})/(\d{4})');
+      if m is not null then d := make_date(m[3]::int, m[2]::int, m[1]::int); else d := hoy; end if;
+    end if;
+  end if;
+  select (body->>'steps')::numeric into prev from fit_docs where id = 's-' || d::text;
+  if prev is not null and round(p_steps) <= prev then
+    return 'sin cambios ' || d::text || ': se mantienen ' || prev || ' pasos';
   end if;
   insert into fit_docs (id, body, updated_at)
     values ('s-' || d::text, jsonb_build_object('date', d::text, 'steps', round(p_steps)), clock_timestamp())
     on conflict (id) do update set body = excluded.body, updated_at = excluded.updated_at;
-  return 'ok ' || d::text || ': ' || round(p_steps) || ' pasos (fecha recibida: ' || coalesce(p_date,'ninguna') || ')';
+  return 'ok ' || d::text || ': ' || round(p_steps) || ' pasos';
 end $$;
 
 grant execute on function public.fit_init(text), public.fit_pull(text, timestamptz),
