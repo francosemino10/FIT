@@ -429,7 +429,7 @@ function viewHoy(){
       <div class="mline">${list.length?macroLine(mt):'Sin alimentos'}</div></div></div>`;
     list.forEach((it,i)=>{const tt=itemTot(it);
       h+=`<div class="item" data-act="edit-item" data-meal="${k}" data-i="${i}">${foodIcon(it.name)}<div class="sp"><div class="nm">${esc(it.name)}</div>
-        <div class="mline">${r1(it.qty??1)} × ${esc(it.portion||'porción')} · <span class="p">P ${r0(tt.p)}</span> <span class="c">C ${r0(tt.c)}</span> <span class="f">G ${r0(tt.f)}</span></div></div>
+        <div class="mline">${qtyLabel(it)} · <span class="p">P ${r0(tt.p)}</span> <span class="c">C ${r0(tt.c)}</span> <span class="f">G ${r0(tt.f)}</span></div></div>
         <div style="font-weight:600">${fmt(tt.kcal)}</div></div>`});
     h+=`<div class="row"><button class="add" data-act="open-add" data-meal="${k}">+ Agregar alimento</button>
       ${!list.length?`<button class="linkbtn" data-act="copy-yday" data-meal="${k}" style="white-space:nowrap">Repetir de ayer</button>`:`<button class="linkbtn" data-act="tpl-new" data-meal="${k}" style="white-space:nowrap">☆ Guardar comida</button>`}</div></div>`;
@@ -701,11 +701,9 @@ function renderSheet(){
   let title='',body='';
   if(s.type==='add'){
     const ml=MEALS.find(m=>m[0]===s.meal)[1];title='Agregar a '+ml;
-    if(s.pick){const f=s.pick,q=num(s.qty)??1,t=itemTot({...f,qty:q});title=f.name;
+    if(s.pick){const f=s.pick;title=f.name;
       body=`<div class="mut small">${esc(f.portion||'porción')}: ${fmt(f.kcal)} kcal · P ${r1(f.p)} · C ${r1(f.c)} · G ${r1(f.f)}</div>
-        <label class="lb">Cantidad de porciones</label>
-        <div class="row"><button class="btn sec2 sm" data-act="qty" data-d="-0.5">−</button><input id="qtyin" inputmode="decimal" value="${esc(s.qty)}" style="text-align:center"><button class="btn sec2 sm" data-act="qty" data-d="0.5">+</button></div>
-        <div class="card" style="margin-top:12px;background:var(--card2)"><div class="mline" id="qtyprev" style="font-size:14px">${macroLine(t)}</div></div>
+        ${qtyWidget(f,s)}
         <button class="btn" data-act="add-picked">Agregar</button><div style="margin-top:8px"><button class="btn sec2" data-act="unpick">Volver</button></div>`}
     else{
       const tabs=[['lib','Buscar'],['tpl','Comidas'],['man','Manual']];if(S.sample)tabs.push(['ai','Con IA']);
@@ -729,14 +727,15 @@ function renderSheet(){
     }
   }
   else if(s.type==='item'){const it=s.item;title=it.name;
-    body=`<label class="lb" style="margin-top:0">Cantidad (× ${esc(it.portion||'porción')})</label><input id="itqty" inputmode="decimal" value="${it.qty??1}">
+    body=`<div class="mut small">${esc(it.portion||'porción')}: ${fmt(it.kcal)} kcal · P ${r1(it.p)} · C ${r1(it.c)} · G ${r1(it.f)}</div>
+      ${qtyWidget(it,s)}
       <label class="lb">Mover a</label><select id="itmeal">${MEALS.map(([k,l])=>`<option value="${k}" ${k===s.meal?'selected':''}>${l}</option>`).join('')}</select>
       <div style="margin-top:14px"><button class="btn" data-act="item-save">Guardar</button></div>
       <div style="margin-top:8px"><button class="btn danger" data-act="item-del">Quitar de la comida</button></div>`}
   else if(s.type==='tpl'){const t=s.tpl;title=t.id&&(S.meals.some(m=>m.id===t.id)||t.baseId)?'Editar comida guardada':'Guardar comida';
     body=`<label class="lb" style="margin-top:0">Nombre</label><input id="tplname" value="${esc(t.name)}" placeholder="Ej: Yogur con granola">
       <label class="lb">Alimentos (${t.items.length})</label>
-      ${t.items.map((it,i)=>{const tt=itemTot(it);return`<div class="frow" style="cursor:default">${foodIcon(it.name)}<div class="sp"><div style="font-weight:600">${esc(it.name)}</div><div class="mline">${r1(it.qty??1)} × ${esc(it.portion)} · ${fmt(tt.kcal)} kcal</div></div><button class="x" data-act="tpl-rm" data-i="${i}" aria-label="Quitar">×</button></div>`}).join('')}
+      ${t.items.map((it,i)=>{const tt=itemTot(it);return`<div class="frow" style="cursor:default">${foodIcon(it.name)}<div class="sp"><div style="font-weight:600">${esc(it.name)}</div><div class="mline">${qtyLabel(it)} · ${fmt(tt.kcal)} kcal</div></div><button class="x" data-act="tpl-rm" data-i="${i}" aria-label="Quitar">×</button></div>`}).join('')}
       <div class="card" style="margin-top:10px;background:var(--card2)"><div class="mline" style="font-size:14px">Total: ${macroLine(sumItems(t.items))}</div></div>
       <button class="btn" data-act="tpl-save">Guardar</button>
       ${S.meals.some(m=>m.id===t.id)||t.baseId?`<div style="margin-top:8px"><button class="btn danger" data-act="tpl-del">Eliminar comida guardada</button></div>`:''}`}
@@ -783,6 +782,19 @@ function allFoods(){return S.foods.concat(BASE_FOODS)}
 function tplRows(q){const n=norm(q||'');const list=allMeals().filter(t=>!n||norm(t.name).includes(n)||t.items.some(i=>norm(i.name).includes(n)));
   return list.length?list.map(t=>{const tt=sumItems(t.items);return`<div class="frow" data-act="tpl-use" data-id="${t.id}">${foodIcon(t.items[0]?.name||'')}<div class="sp"><div style="font-weight:600">${esc(t.name)}</div>
     <div class="mline">${t.items.map(i=>esc(i.name)).join(' · ')}</div><div class="mline">${macroLine(tt)}</div></div><span style="color:var(--acc);font-size:22px">+</span></div>`}).join(''):'<div class="empty">Sin resultados.</div>'}
+function portionBase(portion){const m=[...String(portion||'').matchAll(/(\d+(?:[.,]\d+)?)\s*(g|ml)\b/gi)];if(!m.length)return null;const x=m[m.length-1];const a=num(x[1]);return a>0?{amt:a,unit:x[2].toLowerCase()}:null}
+function gramsDefault(portion){return /^\s*\d+(?:[.,]\d+)?\s*(g|ml)\b/i.test(portion||'')}
+const r2=n=>Math.round((n||0)*100)/100;
+function qtyLabel(it){const b=portionBase(it.portion),q=it.qty??1;if(b&&(it.mode==='g'||(it.mode!=='p'&&gramsDefault(it.portion))))return `${fmt(q*b.amt)} ${b.unit}`;return `${r2(q)} × ${esc(it.portion||'porción')}`}
+function initQty(s,f,qty,mode){const b=portionBase(f.portion);s.qmode=b?(mode||(gramsDefault(f.portion)?'g':'p')):'p';s.qval=String(s.qmode==='g'?Math.round((qty??1)*b.amt):r2(qty??1))}
+function qtyFrom(f,s){const v=num(s.qval);if(v==null||v<=0)return null;const b=portionBase(f.portion);return (b&&s.qmode==='g')?v/b.amt:v}
+function qtyWidget(f,s){const b=portionBase(f.portion);const mode=b?s.qmode:'p';const q=qtyFrom(f,s);
+  const seg=b?`<div class="seg" style="margin-top:12px"><button class="${mode==='g'?'on':''}" data-act="qmode" data-m="g">${b.unit==='ml'?'Mililitros':'Gramos'}</button><button class="${mode==='p'?'on':''}" data-act="qmode" data-m="p">Porciones</button></div>`:'';
+  const inp=mode==='g'
+    ?`<label class="lb">Cantidad que comiste</label><div class="row"><input id="qtyin" inputmode="decimal" value="${esc(s.qval)}" style="text-align:center;font-size:22px;font-weight:700;flex:1;min-width:0"><span style="font-weight:700;font-size:18px;flex:0 0 auto">${b.unit}</span></div>
+      <div class="chips" style="margin-top:8px">${(b.unit==='ml'?[100,200,250,300,500]:[30,50,80,100,150,200,250]).map(v=>`<button class="chip" data-act="qset" data-v="${v}">${v} ${b.unit}</button>`).join('')}</div>`
+    :`<label class="lb">Cantidad de porciones (${esc(f.portion||'porción')})</label><div class="row"><button class="btn sec2 sm" data-act="qty" data-d="-0.5">−</button><input id="qtyin" inputmode="decimal" value="${esc(s.qval)}" style="text-align:center;font-size:20px;font-weight:700"><button class="btn sec2 sm" data-act="qty" data-d="0.5">+</button></div>`;
+  return seg+inp+`<div class="card" style="margin-top:12px;background:var(--card2)"><div class="mline" id="qtyprev" style="font-size:14px">${macroLine(itemTot({...f,qty:q??0}))}</div></div>`}
 function foodPickRows(){const q=(S.sheet.q||'').toLowerCase();
   // most used first: count occurrences in days
   const cnt={};Object.values(S.days).forEach(d=>MEALS.forEach(([k])=>(d.meals?.[k]||[]).forEach(it=>{if(it.foodId)cnt[it.foodId]=(cnt[it.foodId]||0)+1})));
@@ -853,10 +865,12 @@ document.addEventListener('click',async ev=>{
     case 'today':S.date=iso(new Date());render();break;
     case 'open-add':openSheet({type:'add',meal:el.dataset.meal,tab:'lib',q:''});break;
     case 'add-tab':if(s.tab==='man')s.man=readFoodForm();s.tab=el.dataset.t;renderSheet();break;
-    case 'pick':s.pick=allFoods().find(f=>f.id===el.dataset.id);s.qty='1';renderSheet();break;
+    case 'pick':s.pick=allFoods().find(f=>f.id===el.dataset.id);initQty(s,s.pick,1);renderSheet();setTimeout(()=>{const i=$('#qtyin');if(i&&s.qmode==='g'){i.focus();i.select()}},80);break;
+    case 'qmode':{const f=s.pick||s.item,b=portionBase(f.portion),q=qtyFrom(f,{...s,qval:$('#qtyin').value})??1;s.qmode=el.dataset.m;s.qval=String(s.qmode==='g'?Math.round(q*b.amt):r2(q));renderSheet();break}
+    case 'qset':s.qval=el.dataset.v;renderSheet();break;
     case 'unpick':s.pick=null;renderSheet();break;
-    case 'qty':{const q=Math.max(0.25,(num($('#qtyin').value)||0)+(+el.dataset.d));s.qty=String(r1(q));renderSheet();break}
-    case 'add-picked':{const q=num($('#qtyin').value);if(!q||q<=0){toast('Cantidad inválida');return}addToMeal(s.meal,[mealItemFrom(s.pick,q)]);closeSheet();render();toast('Agregado');break}
+    case 'qty':{const q=Math.max(0.25,(num($('#qtyin').value)||0)+(+el.dataset.d));s.qval=String(r2(q));renderSheet();break}
+    case 'add-picked':{const q=qtyFrom(s.pick,{...s,qval:$('#qtyin').value});if(!q){toast('Cantidad inválida');return}const it=mealItemFrom(s.pick,q);if(portionBase(s.pick.portion))it.mode=s.qmode;addToMeal(s.meal,[it]);closeSheet();render();toast('Agregado');break}
     case 'add-manual':{const f=readFoodForm();if(!f.name){toast('Poné un nombre');return}const q=num($('#ff-qty')?.value)||1;
       if($('#mansave').checked){f.id=uidGen();upsertFoods([f])}addToMeal(s.meal,[mealItemFrom(f,q)]);closeSheet();render();toast('Agregado');break}
     case 'ai-run':runAI();break;
@@ -864,8 +878,8 @@ document.addEventListener('click',async ev=>{
       const foods=sel.map(i=>({id:uidGen(),name:i.name,portion:i.portion,kcal:i.kcal,p:i.p,c:i.c,f:i.f}));
       if($('#aisave').checked)upsertFoods(foods);addToMeal(s.meal,foods.map(f=>mealItemFrom(f,1)));closeSheet();render();toast(`${foods.length} agregado${foods.length>1?'s':''}`);break}
     case 'copy-yday':{const y=getDay(addDays(S.date,-1)).meals[el.dataset.meal]||[];if(!y.length){toast('Ayer no hay nada en esa comida');return}addToMeal(el.dataset.meal,clone(y));render();toast('Copiado de ayer');break}
-    case 'edit-item':{const day=getDay(S.date);openSheet({type:'item',meal:el.dataset.meal,i:+el.dataset.i,item:day.meals[el.dataset.meal][+el.dataset.i]});break}
-    case 'item-save':{const q=num($('#itqty').value);if(!q||q<=0){toast('Cantidad inválida');return}const day=getDay(S.date);const it=day.meals[s.meal].splice(s.i,1)[0];it.qty=q;
+    case 'edit-item':{const day=getDay(S.date);const ns={type:'item',meal:el.dataset.meal,i:+el.dataset.i,item:day.meals[el.dataset.meal][+el.dataset.i]};initQty(ns,ns.item,ns.item.qty,ns.item.mode);openSheet(ns);break}
+    case 'item-save':{const q=qtyFrom(s.item,{...s,qval:$('#qtyin').value});if(!q){toast('Cantidad inválida');return}const day=getDay(S.date);const it=day.meals[s.meal].splice(s.i,1)[0];it.qty=q;if(portionBase(it.portion))it.mode=s.qmode;
       const to=$('#itmeal').value;if(to===s.meal)day.meals[to].splice(s.i,0,it);else day.meals[to].push(it);save('d-'+S.date,day);closeSheet();render();break}
     case 'item-del':{const day=getDay(S.date);day.meals[s.meal].splice(s.i,1);save('d-'+S.date,day);closeSheet();render();break}
     case 'routine':S.routine=el.dataset.id;render();break;
@@ -922,7 +936,7 @@ document.addEventListener('input',ev=>{
   if(t.id==='tplq'){S.sheet.tq=t.value;$('#tpllist').innerHTML=tplRows(t.value);return}
   if(t.id==='foodq'){S.sheet.q=t.value;$('#foodlist').innerHTML=foodPickRows();return}
   if(t.id==='libq'){S.libq=t.value;$('#liblist').innerHTML=libRows(libList());return}
-  if(t.id==='qtyin'&&S.sheet?.pick){S.sheet.qty=t.value;const q=num(t.value)??0;$('#qtyprev').innerHTML=macroLine(itemTot({...S.sheet.pick,qty:q}));return}
+  if(t.id==='qtyin'&&S.sheet&&(S.sheet.pick||S.sheet.item)){S.sheet.qval=t.value;const f=S.sheet.pick||S.sheet.item;$('#qtyprev').innerHTML=macroLine(itemTot({...f,qty:qtyFrom(f,S.sheet)??0}));return}
   if(t.id==='aitext'&&S.sheet?.ai){S.sheet.ai.text=t.value;return}
   if(t.dataset.aisel!=null){S.sheet.ai.items[+t.dataset.aisel].sel=t.checked;return}
 });
