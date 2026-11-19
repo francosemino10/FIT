@@ -172,11 +172,16 @@ const PRESET_ROUTINES=[
  {id:'r3',name:'Día 3 · Piernas',ex:[['Sentadilla hack (calentamiento)',2],['Sentadilla hack',2],['Peso muerto rumano',2],['Sillón de cuádriceps',3],['Camilla isquios',3],['Gemelos',3]]},
  {id:'r4',name:'Día 4 · Upper',ex:[['Press inclinado en máquina',3],['Remo T',3],['Vuelos laterales sentado (SS1)',3],['Posteriores con mancuerna (SS1)',3],['Curl bíceps con barra en polea (SS2)',3],['Extensión trasnuca con soga (SS2)',3],['Press francés (SS3)',3],['Bíceps martillo con mancuerna (SS3)',3]]},
 ];
+const PRESET_RANGES=(()=>{const m={};const w='10-15',a='6-12',b='8-15';
+  [['r1',[w,a,a,b,b,b]],['r2',[w,a,a,b,b,b]],['r3',[w,a,a,b,b,b]],['r4',[a,a,b,b,b,b,b,b]]].forEach(([id,rs])=>{const r=PRESET_ROUTINES.find(x=>x.id===id);r.ex.forEach((e,i)=>m[e[0]]=rs[i])});return m})();
 function presetConfig(base){const cfg=clone(base);cfg.routines=PRESET_ROUTINES.map(r=>({id:r.id,name:r.name,exercises:r.ex.map(e=>e[0])}));
-  cfg.setsPlan={...(cfg.setsPlan||{})};PRESET_ROUTINES.forEach(r=>r.ex.forEach(([n,k])=>cfg.setsPlan[n]=k));cfg.presetApplied=true;return cfg}
+  cfg.setsPlan={...(cfg.setsPlan||{})};PRESET_ROUTINES.forEach(r=>r.ex.forEach(([n,k])=>cfg.setsPlan[n]=k));cfg.rangePlan={...PRESET_RANGES,...(cfg.rangePlan||{})};cfg.presetApplied=true;return cfg}
 function applyPresetIfEmpty(){if(S.presetChecked)return;S.presetChecked=true;
-  if(S.config.presetApplied||S.config.routines.some(r=>r.exercises.length))return;
+  if(S.config.presetApplied||S.config.routines.some(r=>r.exercises.length)){
+    if(!S.config.rangePlan){const cfg=clone(S.config);cfg.rangePlan={...PRESET_RANGES};save('config',cfg);S.wdraft={}}
+    return}
   save('config',presetConfig(S.config));S.wdraft={};S.cfgDraft=null}
+const rangeFor=n=>(S.config.rangePlan||{})[n]||'';
 const setsFor=n=>Math.max(1,(S.config.setsPlan||{})[n]||3);
 const blankSets=n=>Array.from({length:setsFor(n)},()=>({w:null,r:null}));
 const DEFAULT_CONFIG={routines:[1,2,3,4].map(i=>({id:'r'+i,name:'Rutina '+i,exercises:[]})),goals:{kcal:2500,p:150,c:280,f:80,steps:10000}};
@@ -462,11 +467,11 @@ function getDraft(){
   const saved=S.workouts['w-'+S.date+'-'+S.routine];
   const r=routineById(S.routine);
   if(saved){const d={...clone(saved),dirty:false,saved:true};
-    r.exercises.forEach(n=>{if(!d.exercises.some(e=>e.name===n)){const last=lastSetsFor(n,S.date);d.exercises.push({name:n,range:last?.range||'',sets:last?clone(last.sets):[]})}});
+    r.exercises.forEach(n=>{if(!d.exercises.some(e=>e.name===n)){const last=lastSetsFor(n,S.date);d.exercises.push({name:n,range:last?.range||rangeFor(n),sets:last?clone(last.sets):[]})}});
     d.exercises.forEach(e=>{if(!e.sets.length)e.sets=blankSets(e.name)});
     S.wdraft[key]=d;return d}
   const d={kind:'workout',date:S.date,routineId:r.id,routineName:r.name,dirty:false,saved:false,
-    exercises:r.exercises.map(n=>{const last=lastSetsFor(n,S.date);return{name:n,range:last?.range||'',sets:last?last.sets.map(s=>({w:s.w,r:s.r})):blankSets(n)}})};
+    exercises:r.exercises.map(n=>{const last=lastSetsFor(n,S.date);return{name:n,range:last?.range||rangeFor(n),sets:last?last.sets.map(s=>({w:s.w,r:s.r})):blankSets(n)}})};
   S.wdraft[key]=d;return d;
 }
 function viewEntreno(){
