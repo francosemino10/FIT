@@ -644,6 +644,7 @@ function viewCuerpo(){
   if(meas.length){h+=`<div class="sec">Resumen de medidas</div><div class="card">${meas.map(m=>{const d=m.last[m.k]-m.first[m.k];
     return`<div class="frow" style="cursor:default"><div class="sp" style="font-weight:600">${m.l}</div><div class="mut small" style="margin-right:10px">${r1(m.first[m.k])} \u2192 </div><div style="font-weight:700;min-width:58px;text-align:right">${r1(m.last[m.k])} cm</div><div class="small" style="min-width:52px;text-align:right;color:${d===0?'var(--mut)':(['chest','arm'].includes(m.k)?(d>0?'var(--ok)':'var(--bad)'):(d<0?'var(--ok)':'var(--bad)'))}">${d>=0?'+':''}${r1(d)}</div></div>`}).join('')}
     <div class="mut small" style="margin-top:6px">Verde = va en la direcci\u00F3n buena para recomposici\u00F3n (bajar cintura/panza/cadera, subir pecho/brazo).</div></div>`}
+  if(all.length){h+=`<div class="sec">Historial</div><div class="card" style="padding:0">`+all.slice().reverse().map(b=>{const vals=BODY.filter(([k])=>b[k]!=null).map(([k,l,u])=>`${l}: <b>${r1(b[k])}</b>\u00A0${u}`).join(' \u00B7 ');return`<div style="padding:10px 14px;border-bottom:1px solid var(--line)"><div style="font-weight:600">${prettyDate(b.date)}</div><div class="mut small" style="margin-top:3px">${vals}</div></div>`}).join('')+`</div>`}
   h+=`<button class="btn sec2" data-act="import-open" style="margin-top:4px">Importar registros anteriores</button>`;
   return h;
 }
