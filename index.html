@@ -584,7 +584,7 @@ function viewEntreno(){
         <input inputmode="numeric" data-w="${ei}|${si}|r" value="${s.r??''}" placeholder="reps">
         <button class="x" data-act="del-set" data-ei="${ei}" data-si="${si}" aria-label="Borrar serie">\u00D7</button>`).join('')}
       </div><button class="linkbtn" data-act="add-set" data-ei="${ei}">+ Serie</button>
-      <div class="row" style="margin-top:8px;gap:6px"><span class="mut small">\u23F1</span>${[60,90,120,180].map(s=>{const lbl=s%60===0?`${s/60}min`:`${s}s`;return`<button class="chip${S.timerDur===s?' on':''}" data-act="timer-start" data-d="${s}" style="padding:5px 10px;font-size:12px">${lbl}</button>`}).join('')}</div></div>`);
+      <div class="row" style="margin-top:8px;gap:6px"><span class="mut small">\u23F1</span>${[60,90,120,180].map(s=>{const lbl=s%60===0?`${s/60}min`:`${s}s`;return`<button class="chip${S.timerDur===s?' on':''}" data-act="timer-start" data-d="${s}" style="padding:5px 10px;font-size:12px">${lbl}</button>`}).join('')}</div></div>`});
   h+=`<div style="margin-top:14px"><button class="btn" data-act="save-workout">${d.saved?'Actualizar entrenamiento':'Guardar entrenamiento'}</button></div>
     ${d.saved?`<div style="margin-top:8px"><button class="btn danger" data-act="del-workout">Borrar registro de este d\u00EDa</button></div>`:''}</div>`;
   const hist=workoutsSorted().filter(w=>w.routineId===r.id).reverse().slice(0,5);
