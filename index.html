@@ -259,7 +259,7 @@ const blankSets=n=>Array.from({length:setsFor(n)},()=>({w:null,r:null}));
 const DEFAULT_CONFIG={routines:[1,2,3,4].map(i=>({id:'r'+i,name:'Rutina '+i,exercises:[]})),goals:{kcal:2500,p:150,c:280,f:80,steps:10000}};
 
 const S={mode:'loading',col:null,config:clone(DEFAULT_CONFIG),foods:[],meals:[],days:{},workouts:{},body:{},health:{},bodyMetric:'chest',bodyDraft:{},
-  date:iso(new Date()),tab:'hoy',routine:'r1',wdraft:{},cfgDraft:null,
+  date:iso(new Date()),tab:'hoy',routine:'r1',wdraft:{},cfgDraft:null,cfgOpenSecs:[],
   progEx:'',progMetric:'max',themePref:null,sample:null,sampleImages:false,sheet:null,pendingRender:false,charts:[],libq:'',
   timer:{running:false,left:90,total:90,t:null},timerDur:90};
 
@@ -778,43 +778,53 @@ function viewAjustes(){
   if(!S.cfgDraft)S.cfgDraft=clone(S.config);
   const c=S.cfgDraft,g=c.goals;
   const tp=S.themePref||'auto';
-  let h=`<div class="sec" style="margin-top:4px">Apariencia</div><div class="card"><div class="seg">${[['auto','Autom\u00E1tico'],['dia','D\u00EDa \u00B7 Terracota'],['noche','Noche \u00B7 Oc\u00E9ano']].map(([k,l])=>`<button class="${tp===k?'on':''}" data-act="theme-set" data-v="${k}">${l}</button>`).join('')}</div>
-    <div class="mut small" style="margin-top:8px">Autom\u00E1tico usa Terracota de 7 a 20 h y Oc\u00E9ano el resto. El bot\u00F3n \u2600/\u263E de arriba cambia r\u00E1pido.</div></div>
-  <div class="sec">Objetivos diarios</div><div class="card">
+  const op=k=>S.cfgOpenSecs.includes(k);
+  const hd=(k,lbl,first)=>`<div class="sec" style="${first?'margin-top:4px;':''}cursor:pointer;display:flex;align-items:center" data-act="cfg-toggle" data-sec="${k}"><span style="flex:1">${lbl}</span><span style="font-size:11px;color:var(--mut);margin-left:6px">${op(k)?'\u25B2':'\u25BC'}</span></div>`;
+  let h=hd('apariencia','Apariencia',true);
+  if(op('apariencia'))h+=`<div class="card"><div class="seg">${[['auto','Autom\u00E1tico'],['dia','D\u00EDa \u00B7 Terracota'],['noche','Noche \u00B7 Oc\u00E9ano']].map(([k,l])=>`<button class="${tp===k?'on':''}" data-act="theme-set" data-v="${k}">${l}</button>`).join('')}</div>
+    <div class="mut small" style="margin-top:8px">Autom\u00E1tico usa Terracota de 7 a 20 h y Oc\u00E9ano el resto. El bot\u00F3n \u2600/\u263E de arriba cambia r\u00E1pido.</div></div>`;
+  h+=hd('objetivos','Objetivos diarios');
+  if(op('objetivos'))h+=`<div class="card">
     <div class="f2"><div><label class="lb">Calor\u00EDas</label><input inputmode="numeric" data-goal="kcal" value="${g.kcal}"></div>
     <div><label class="lb">Pasos</label><input inputmode="numeric" data-goal="steps" value="${g.steps}"></div></div>
     <div class="f2" style="grid-template-columns:repeat(3,1fr)"><div><label class="lb">Prote\u00EDna (g)</label><input inputmode="numeric" data-goal="p" value="${g.p}"></div>
     <div><label class="lb">Carbos (g)</label><input inputmode="numeric" data-goal="c" value="${g.c}"></div>
     <div><label class="lb">Grasas (g)</label><input inputmode="numeric" data-goal="f" value="${g.f}"></div></div>
     <div style="margin-top:12px"><button class="btn" data-act="save-goals">Guardar objetivos</button></div></div>`;
-  h+=`<div class="sec">Rutinas de la semana</div>`;
-  c.routines.forEach((r,ri)=>{
-    h+=`<div class="card"><label class="lb" style="margin-top:0">Nombre</label><input data-rname="${ri}" value="${esc(r.name)}">
-      <label class="lb">Ejercicios</label>
-      ${r.exercises.map((e,ei)=>`<div class="row" style="margin-bottom:6px">${bodyIcon(e)}<input data-ename="${ri}|${ei}" value="${esc(e)}" placeholder="Nombre del ejercicio">
-        <input data-eset="${ri}|${ei}" value="${(c.setsPlan||{})[e]||3}" inputmode="numeric" style="width:46px;padding:9px 4px;text-align:center" aria-label="Series">
-        <button class="x" data-act="ex-up" data-ri="${ri}" data-ei="${ei}" aria-label="Subir">\u2191</button>
-        <button class="x" data-act="ex-del" data-ri="${ri}" data-ei="${ei}" aria-label="Quitar">\u00D7</button></div>`).join('')||'<div class="mut small">Sin ejercicios todav\u00EDa.</div>'}
-      <button class="linkbtn" data-act="ex-add" data-ri="${ri}">+ Ejercicio</button></div>`});
-  h+=`<button class="btn" data-act="save-routines">Guardar rutinas</button>
-    <div class="mut small" style="margin-top:6px">El n\u00FAmero al lado de cada ejercicio son las series. El progreso se agrupa por nombre de ejercicio: si lo renombr\u00E1s, empieza una serie nueva en los gr\u00E1ficos.</div>
-    <div style="margin-top:8px"><button class="btn sec2" data-act="preset-routines">Restablecer rutinas del plan (Push \u00B7 Pull \u00B7 Piernas \u00B7 Upper)</button></div>
-    <div style="margin-top:8px"><button class="btn sec2" data-act="wimport-open">Importar entrenamientos</button></div>`;
-  h+=`<div class="sec">Alimentos (${S.foods.length} tuyos \u00B7 ${BASE_FOODS.length} de la lista base)</div><div class="card">
+  h+=hd('rutinas','Rutinas de la semana');
+  if(op('rutinas')){
+    c.routines.forEach((r,ri)=>{
+      h+=`<div class="card"><label class="lb" style="margin-top:0">Nombre</label><input data-rname="${ri}" value="${esc(r.name)}">
+        <label class="lb">Ejercicios</label>
+        ${r.exercises.map((e,ei)=>`<div class="row" style="margin-bottom:6px">${bodyIcon(e)}<input data-ename="${ri}|${ei}" value="${esc(e)}" placeholder="Nombre del ejercicio">
+          <input data-eset="${ri}|${ei}" value="${(c.setsPlan||{})[e]||3}" inputmode="numeric" style="width:46px;padding:9px 4px;text-align:center" aria-label="Series">
+          <button class="x" data-act="ex-up" data-ri="${ri}" data-ei="${ei}" aria-label="Subir">\u2191</button>
+          <button class="x" data-act="ex-del" data-ri="${ri}" data-ei="${ei}" aria-label="Quitar">\u00D7</button></div>`).join('')||'<div class="mut small">Sin ejercicios todav\u00EDa.</div>'}
+        <button class="linkbtn" data-act="ex-add" data-ri="${ri}">+ Ejercicio</button></div>`;});
+    h+=`<button class="btn" data-act="save-routines">Guardar rutinas</button>
+      <div class="mut small" style="margin-top:6px">El n\u00FAmero al lado de cada ejercicio son las series. El progreso se agrupa por nombre de ejercicio: si lo renombr\u00E1s, empieza una serie nueva en los gr\u00E1ficos.</div>
+      <div style="margin-top:8px"><button class="btn sec2" data-act="preset-routines">Restablecer rutinas del plan (Push \u00B7 Pull \u00B7 Piernas \u00B7 Upper)</button></div>
+      <div style="margin-top:8px"><button class="btn sec2" data-act="wimport-open">Importar entrenamientos</button></div>`;
+  }
+  h+=hd('alimentos',`Alimentos (${S.foods.length} tuyos \u00B7 ${BASE_FOODS.length} de la lista base)`);
+  if(op('alimentos'))h+=`<div class="card">
     <div class="row"><input id="libq" placeholder="Buscar\u2026" value="${esc(S.libq)}"><button class="btn sm" data-act="food-new">+ Nuevo</button></div>
     <div id="liblist">${libRows(libList())}</div><div class="mut small" style="margin-top:8px">Si edit\u00E1s uno de la lista base se guarda una copia tuya con tus valores.</div></div>`;
-  h+=`<div class="sec">Comidas guardadas (${allMeals().length})</div><div class="card">${allMeals().length?allMeals().map(t=>`<div class="frow" data-act="tpl-edit" data-id="${t.id}">${foodIcon(t.items[0]?.name||'')}<div class="sp"><div style="font-weight:600">${esc(t.name)}</div><div class="mline">${t.items.length} alimentos \u00B7 ${fmt(sumItems(t.items).kcal)} kcal</div></div><span class="mut">\u203A</span></div>`).join('')
+  h+=hd('comidas',`Comidas guardadas (${allMeals().length})`);
+  if(op('comidas'))h+=`<div class="card">${allMeals().length?allMeals().map(t=>`<div class="frow" data-act="tpl-edit" data-id="${t.id}">${foodIcon(t.items[0]?.name||'')}<div class="sp"><div style="font-weight:600">${esc(t.name)}</div><div class="mline">${t.items.length} alimentos \u00B7 ${fmt(sumItems(t.items).kcal)} kcal</div></div><span class="mut">\u203A</span></div>`).join('')
     :'<div class="empty">Se guardan desde la pantalla Hoy con \u00AB\u2606 Guardar comida\u00BB.</div>'}</div>`;
   if(IS_PWA&&SB.url){
     const st=SYNC.secret?(SYNC.status==='error'?`<span style="color:var(--bad)">Error: ${esc(SYNC.err)}</span>`:SYNC.at?`\u00DAltima sincronizaci\u00F3n: ${new Date(SYNC.at).toLocaleString('es-AR',{day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit'})}${Object.keys(SYNC.pending).length?` \u00B7 ${Object.keys(SYNC.pending).length} pendientes`:''}`:'Conectando\u2026'):'Desactivada';
-    h+=`<div class="sec">Sincronizaci\u00F3n en la nube</div><div class="card"><div class="row"><div class="sp"><div style="font-weight:600">${SYNC.secret?'\u2601 Activada':'Desactivada'}</div><div class="mut small">${st}</div></div></div>
+    h+=hd('sync','Sincronizaci\u00F3n en la nube');
+    if(op('sync'))h+=`<div class="card"><div class="row"><div class="sp"><div style="font-weight:600">${SYNC.secret?'\u2601 Activada':'Desactivada'}</div><div class="mut small">${st}</div></div></div>
       <div class="mut small" style="margin-top:8px">Guarda una copia de todo en tu base de Supabase y recibe los pasos de Salud desde Atajos.</div>
       ${SYNC.secret?`<div style="margin-top:10px"><button class="btn" data-act="sync-now">Sincronizar ahora</button></div>
         <div style="margin-top:8px"><button class="btn sec2" data-act="sync-keys">Datos para el atajo de pasos</button></div>`
       :`<div style="margin-top:10px"><button class="btn" data-act="sync-on">Activar sincronizaci\u00F3n</button></div>
         <div style="margin-top:8px"><button class="btn sec2" data-act="sync-have">Ya tengo una clave (otro celular)</button></div>`}</div>`;
   }
-  h+=`<div class="sec">Datos y respaldo</div><div class="card"><div class="mut small">${IS_PWA?'Tus datos se guardan solo en este celular. Descarg\u00E1 un respaldo cada tanto (por ejemplo a Archivos o iCloud) para no perderlos.':'Copi\u00E1 un respaldo de todos tus datos para guardarlo o pasarlo a la versi\u00F3n instalable.'}</div>
+  h+=hd('datos','Datos y respaldo');
+  if(op('datos'))h+=`<div class="card"><div class="mut small">${IS_PWA?'Tus datos se guardan solo en este celular. Descarg\u00E1 un respaldo cada tanto (por ejemplo a Archivos o iCloud) para no perderlos.':'Copi\u00E1 un respaldo de todos tus datos para guardarlo o pasarlo a la versi\u00F3n instalable.'}</div>
     ${IS_PWA?`<div style="margin-top:10px"><button class="btn" data-act="export-file">Descargar respaldo</button></div>`:''}
     <div style="margin-top:8px"><button class="btn sec2" data-act="export">Copiar respaldo</button></div>
     <div style="margin-top:8px"><button class="btn sec2" data-act="restore-open">Restaurar respaldo</button></div>
@@ -1119,7 +1129,8 @@ document.addEventListener('click',async ev=>{
       const to=$('#itmeal').value;if(to===s.meal)day.meals[to].splice(s.i,0,it);else day.meals[to].push(it);save('d-'+S.date,day);closeSheet();render();break}
     case 'item-del':{const day=getDay(S.date);day.meals[s.meal].splice(s.i,1);save('d-'+S.date,day);closeSheet();render();break}
     case 'routine':S.routine=el.dataset.id;render();break;
-    case 'goto-routines':S.tab='ajustes';S.cfgDraft=null;render();break;
+    case 'cfg-toggle':{const k=el.dataset.sec,i=S.cfgOpenSecs.indexOf(k);if(i>=0)S.cfgOpenSecs.splice(i,1);else S.cfgOpenSecs.push(k);render();break}
+    case 'goto-routines':S.tab='ajustes';S.cfgDraft=null;if(!S.cfgOpenSecs.includes('rutinas'))S.cfgOpenSecs.push('rutinas');render();break;
     case 'goto-date':S.date=el.dataset.d;window.scrollTo(0,0);render();break;
     case 'add-set':{const d=getDraft(),e=d.exercises[+el.dataset.ei],l=e.sets[e.sets.length-1];e.sets.push({w:l?l.w:null,r:l?l.r:null});d.dirty=true;render();break}
     case 'del-set':{const d=getDraft();d.exercises[+el.dataset.ei].sets.splice(+el.dataset.si,1);d.dirty=true;render();break}
