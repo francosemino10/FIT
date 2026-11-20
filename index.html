@@ -928,12 +928,19 @@ async function searchOFF(q){
   const s=S.sheet;s.offLoading=true;s.offResults=null;
   if($('#foodlist'))$('#foodlist').innerHTML=foodPickRows();
   try{
-    const url=`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&lc=es&cc=ar&action=process&json=1&fields=product_name,product_name_es,nutriments,serving_size,brands&page_size=25`;
-    const data=await fetch(url).then(r=>r.json());
-    s.offResults=(data.products||[]).filter(p=>{const n=p.nutriments;return(p.product_name||p.product_name_es)&&n&&n['energy-kcal_100g']>0}).map(p=>{
-      const n=p.nutriments,name=(p.product_name_es||p.product_name||'').trim().replace(/\s+/g,' '),brandRaw=(p.brands||'').split(',')[0].trim();
+    const url=`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&action=process&json=1&fields=product_name,product_name_es,nutriments,brands&page_size=40&sort_by=unique_scans_n`;
+    const r=await fetch(url);const data=await r.json();
+    s.offResults=(data.products||[]).filter(p=>{
+      const n=p.nutriments;if(!(p.product_name||p.product_name_es)||!n)return false;
+      const kcal=n['energy-kcal_100g']||(n['energy-kj_100g']||n['energy_100g']||0)/4.184;
+      return kcal>0;
+    }).map(p=>{
+      const n=p.nutriments;
+      const kcal=Math.round(n['energy-kcal_100g']||(n['energy-kj_100g']||n['energy_100g']||0)/4.184);
+      const name=(p.product_name_es||p.product_name||'').trim().replace(/\s+/g,' ');
+      const brandRaw=(p.brands||'').split(',')[0].trim();
       const brand=brandRaw&&!name.toLowerCase().includes(brandRaw.toLowerCase())?` (${brandRaw})`:'';
-      return{id:'off_'+uidGen(),name:(name+brand).substring(0,80),portion:'100 g',kcal:Math.round(n['energy-kcal_100g']||0),p:Math.round((n.proteins_100g||0)*10)/10,c:Math.round((n.carbohydrates_100g||0)*10)/10,f:Math.round((n.fat_100g||0)*10)/10};
+      return{id:'off_'+uidGen(),name:(name+brand).substring(0,80),portion:'100 g',kcal,p:Math.round((n.proteins_100g||0)*10)/10,c:Math.round((n.carbohydrates_100g||0)*10)/10,f:Math.round((n.fat_100g||0)*10)/10};
     }).filter(f=>f.name&&f.kcal>0).slice(0,25);
   }catch(e){s.offResults=[];}
   s.offLoading=false;if(S.sheet===s&&$('#foodlist'))$('#foodlist').innerHTML=foodPickRows()}
