@@ -573,7 +573,7 @@ function viewEntreno(){
       <button class="btn" data-act="goto-routines">Cargar ejercicios de la rutina</button></div>`;return h}
   h+=`<div class="card" style="margin-top:12px"><div class="row"><h3 class="sp">${esc(r.name)}</h3>${d.saved?'<span class="tag">GUARDADO</span>':''}</div>
     <div class="mut small" style="margin-top:4px">Los pesos y reps vienen precargados de la \u00FAltima vez. Ajustalos y guard\u00E1.</div>
-    <div class="row" style="margin-top:10px;gap:6px"><span class="mut small">\u23F1</span>${[60,90,120].map(s=>`<button class="chip${S.timerDur===s?' on':''}" data-act="timer-start" data-d="${s}" style="padding:5px 10px;font-size:12px">${s}s</button>`).join('')}</div>`;
+    <div class="row" style="margin-top:10px;gap:6px"><span class="mut small">\u23F1</span>${[60,90,120,180].map(s=>{const lbl=s%60===0?`${s/60}min`:`${s}s`;return`<button class="chip${S.timerDur===s?' on':''}" data-act="timer-start" data-d="${s}" style="padding:5px 10px;font-size:12px">${lbl}</button>`}).join('')}</div>`;
   d.exercises.forEach((e,ei)=>{
     const last=lastSetsFor(e.name,S.date);
     h+=`<div class="ex"><div class="row" style="gap:10px">${bodyIcon(e.name)}<div class="nm sp">${esc(e.name)}</div>
