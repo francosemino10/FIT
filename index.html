@@ -924,13 +924,33 @@ function qtyWidget(f,s){const b=portionBase(f.portion);const mode=b?s.qmode:'p';
       <div class="chips" style="margin-top:8px">${(b.unit==='ml'?[100,200,250,300,500]:[30,50,80,100,150,200,250]).map(v=>`<button class="chip" data-act="qset" data-v="${v}">${v} ${b.unit}</button>`).join('')}</div>`
     :`<label class="lb">Cantidad de porciones (${esc(f.portion||'porci\u00F3n')})</label><div class="row"><button class="btn sec2 sm" data-act="qty" data-d="-0.5">\u2212</button><input id="qtyin" inputmode="decimal" value="${esc(s.qval)}" style="text-align:center;font-size:20px;font-weight:700"><button class="btn sec2 sm" data-act="qty" data-d="0.5">+</button></div>`;
   return seg+inp+`<div class="card" style="margin-top:12px;background:var(--card2)"><div class="mline" id="qtyprev" style="font-size:14px">${macroLine(itemTot({...f,qty:q??0}))}</div></div>`}
-function foodPickRows(){const q=(S.sheet.q||'').toLowerCase();
+async function searchOFF(q){
+  const s=S.sheet;s.offLoading=true;s.offResults=null;
+  if($('#foodlist'))$('#foodlist').innerHTML=foodPickRows();
+  try{
+    const url=`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&lc=es&cc=ar&action=process&json=1&fields=product_name,product_name_es,nutriments,serving_size,brands&page_size=25`;
+    const data=await fetch(url).then(r=>r.json());
+    s.offResults=(data.products||[]).filter(p=>{const n=p.nutriments;return(p.product_name||p.product_name_es)&&n&&n['energy-kcal_100g']>0}).map(p=>{
+      const n=p.nutriments,name=(p.product_name_es||p.product_name||'').trim().replace(/\s+/g,' '),brandRaw=(p.brands||'').split(',')[0].trim();
+      const brand=brandRaw&&!name.toLowerCase().includes(brandRaw.toLowerCase())?` (${brandRaw})`:'';
+      return{id:'off_'+uidGen(),name:(name+brand).substring(0,80),portion:'100 g',kcal:Math.round(n['energy-kcal_100g']||0),p:Math.round((n.proteins_100g||0)*10)/10,c:Math.round((n.carbohydrates_100g||0)*10)/10,f:Math.round((n.fat_100g||0)*10)/10};
+    }).filter(f=>f.name&&f.kcal>0).slice(0,25);
+  }catch(e){s.offResults=[];}
+  s.offLoading=false;if(S.sheet===s&&$('#foodlist'))$('#foodlist').innerHTML=foodPickRows()}
+function foodPickRows(){const s=S.sheet,q=(s.q||'').toLowerCase();
+  if(s.offLoading)return`<div class="empty" style="padding:20px 0"><span class="spin"></span> Buscando en Open Food Facts\u2026</div>`;
+  if(s.offResults!=null){
+    if(!s.offResults.length)return`<div class="empty">Sin resultados en Open Food Facts.<br><br><button class="linkbtn" data-act="off-back">\u2190 Volver</button></div>`;
+    return`<div class="row" style="margin:10px 0 6px"><span class="mut small">\u{1F4E6} Open Food Facts \u00B7 ${s.offResults.length} resultados</span><div class="sp"></div><button class="linkbtn" data-act="off-back">\u2190 Volver</button></div>`+s.offResults.map(f=>`<div class="frow" data-act="off-pick" data-id="${esc(f.id)}">${foodIcon(f.name)}<div class="sp"><div style="font-weight:600">${esc(f.name)}</div><div class="mline">${esc(f.portion)} \u00B7 ${fmt(f.kcal)} kcal \u00B7 <span class="p">P ${r1(f.p)}</span> <span class="c">C ${r1(f.c)}</span> <span class="f">G ${r1(f.f)}</span></div></div><span style="color:var(--acc);font-size:22px">+</span></div>`).join('');
+  }
   // most used first: count occurrences in days
   const cnt={};Object.values(S.days).forEach(d=>MEALS.forEach(([k])=>(d.meals?.[k]||[]).forEach(it=>{if(it.foodId)cnt[it.foodId]=(cnt[it.foodId]||0)+1})));
   const list=allFoods().filter(f=>!q||norm(f.name).includes(norm(q))).sort((a,b)=>(cnt[b.id]||0)-(cnt[a.id]||0)||(a.base?1:0)-(b.base?1:0)||a.name.localeCompare(b.name)).slice(0,80);
-  return list.length?list.map(f=>`<div class="frow" data-act="pick" data-id="${f.id}">${foodIcon(f.name)}<div class="sp"><div style="font-weight:600">${esc(f.name)}${f.base?'':' <span class="tag">M\u00CDO</span>'}</div>
+  let html=list.length?list.map(f=>`<div class="frow" data-act="pick" data-id="${f.id}">${foodIcon(f.name)}<div class="sp"><div style="font-weight:600">${esc(f.name)}${f.base?'':' <span class="tag">M\u00CDO</span>'}</div>
     <div class="mline">${esc(f.portion)} \u00B7 ${fmt(f.kcal)} kcal \u00B7 <span class="p">P ${r1(f.p)}</span> <span class="c">C ${r1(f.c)}</span> <span class="f">G ${r1(f.f)}</span></div></div><span style="color:var(--acc);font-size:22px">+</span></div>`).join('')
-    :'<div class="empty">Sin resultados.</div>'}
+    :'<div class="empty">Sin resultados en lista local.</div>';
+  if(q)html+=`<div style="margin-top:12px;text-align:center"><button class="btn sec2 sm" data-act="off-search">\u{1F50D} Buscar en Open Food Facts</button></div>`;
+  return html}
 
 /* ---------- actions ---------- */
 function addToMeal(meal,items){const day=getDay(S.date);items.forEach(it=>day.meals[meal].push(it));save('d-'+S.date,day)}
@@ -1014,6 +1034,9 @@ document.addEventListener('click',async ev=>{
     case 'copy-yday':{const y=getDay(addDays(S.date,-1)).meals[el.dataset.meal]||[];if(!y.length){toast('Ayer no hay nada en esa comida');return}addToMeal(el.dataset.meal,clone(y));render();toast('Copiado de ayer');break}
     case 'copy-day-open':openSheet({type:'copyDay',meal:el.dataset.meal});break;
     case 'copy-day-use':{const items=S.days[el.dataset.d]?.meals?.[el.dataset.meal]||[];if(!items.length){toast('No hay nada ese d\u00EDa');return}addToMeal(el.dataset.meal,clone(items));closeSheet();render();toast('Copiado');break}
+    case 'off-search':searchOFF(S.sheet.q||'');break;
+    case 'off-back':S.sheet.offResults=null;S.sheet.offLoading=false;if($('#foodlist'))$('#foodlist').innerHTML=foodPickRows();break;
+    case 'off-pick':{const f=S.sheet.offResults?.find(x=>x.id===el.dataset.id);if(!f)break;const saved={...f,id:uidGen()};upsertFoods([saved]);S.sheet.offResults=null;S.sheet.offLoading=false;S.sheet.pick=saved;initQty(S.sheet,saved,1);renderSheet();setTimeout(()=>{const i=$('#qtyin');if(i&&S.sheet.qmode==='g'){i.focus();i.select()}},80);break}
     case 'timer-start':S.timerDur=+el.dataset.d;timerStart(S.timerDur);render();break;
     case 'timer-pause':clearInterval(S.timer.t);S.timer.running=false;renderTimer();break;
     case 'timer-resume':timerResume();break;
@@ -1077,7 +1100,7 @@ document.addEventListener('input',ev=>{
   if(t.dataset.rg!=null){const d=getDraft();d.exercises[+t.dataset.rg].range=t.value;d.dirty=true;return}
   if(t.dataset.w){const[ei,si,k]=t.dataset.w.split('|');const d=getDraft();d.exercises[+ei].sets[+si][k]=num(t.value);d.dirty=true;return}
   if(t.id==='tplq'){S.sheet.tq=t.value;$('#tpllist').innerHTML=tplRows(t.value);return}
-  if(t.id==='foodq'){S.sheet.q=t.value;$('#foodlist').innerHTML=foodPickRows();return}
+  if(t.id==='foodq'){S.sheet.q=t.value;S.sheet.offResults=null;S.sheet.offLoading=false;$('#foodlist').innerHTML=foodPickRows();return}
   if(t.id==='libq'){S.libq=t.value;$('#liblist').innerHTML=libRows(libList());return}
   if(t.id==='qtyin'&&S.sheet&&(S.sheet.pick||S.sheet.item)){S.sheet.qval=t.value;const f=S.sheet.pick||S.sheet.item;$('#qtyprev').innerHTML=macroLine(itemTot({...f,qty:qtyFrom(f,S.sheet)??0}));return}
   if(t.id==='aitext'&&S.sheet?.ai){S.sheet.ai.text=t.value;return}
