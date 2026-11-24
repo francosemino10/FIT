@@ -156,7 +156,7 @@ label.lb{display:block;font-size:12px;color:var(--mut);margin:10px 0 5px;font-we
 <script>
 /* ---------- helpers ---------- */
 const IS_PWA=true;
-const APP_VERSION='20261124105000';
+const APP_VERSION='20261124110500';
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const num=v=>{if(v===null||v===undefined||v==='')return null;const n=parseFloat(String(v).replace(',','.'));return isFinite(n)?n:null};
@@ -235,7 +235,7 @@ const BASE_FOODS=[{"id":"b000","name":"Pechuga de pollo (cruda)","portion":"100 
 {"id":"b228","name":"Surub\u00ED (crudo)","portion":"100 g","kcal":95,"p":20,"c":0,"f":1.5},
 {"id":"b229","name":"Pur\u00E9 de papas casero","portion":"100 g","kcal":95,"p":2.3,"c":18,"f":1.8},
 {"id":"b230","name":"Papas al horno","portion":"100 g cocido","kcal":85,"p":2.5,"c":19,"f":0.1},
-{"id":"b231","name":"Papas fritas caseras","portion":"100 g","kcal":280,"p":3,"c":35,"f":14},{"id":"b232","name":"Protein chip\u00E1 Punto Healthy","portion":"1 unidad","kcal":128,"p":8,"c":12,"f":5},{"id":"b233","name":"Smoothie Punto Healthy","portion":"1 vaso","kcal":250,"p":24,"c":10,"f":3}].map(f=>({...f,base:true}));
+{"id":"b231","name":"Papas fritas caseras","portion":"100 g","kcal":280,"p":3,"c":35,"f":14},{"id":"b232","name":"Protein chip\u00E1 Punto Healthy","portion":"1 unidad","kcal":128,"p":8,"c":12,"f":5},{"id":"b233","name":"Smoothie Punto Healthy","portion":"1 vaso","kcal":250,"p":24,"c":10,"f":3},{"id":"b234","name":"Tallarines con salsa bolognesa (cocidos)","portion":"100 g","kcal":155,"p":7.5,"c":20,"f":5}].map(f=>({...f,base:true}));
 const BASE_MEALS_DEF=[{"id":"bm-bowl","name":"Bowl proteico","items":[["Prote\u00EDna whey Star Nutrition",1],["Avena instant\u00E1nea Granix",1.33],["Leche Protein La Seren\u00EDsima",0.1],["Huevo entero",2],["Chocolate \u00C1guila 80% cacao",1]]},{"id":"bm-tostadas-hq","name":"Tostadas con huevo y queso","items":[["Pan integral Fargo",2],["Huevo entero",2],["Queso untable Finlandia Light",1],["Queso port salut light La Seren\u00EDsima (alto en prote\u00EDnas)",1.33]]},{"id":"bm-reunion","name":"Tostadas en Reuni\u00F3n","items":[["Pan integral Fargo",2],["Queso barra / de m\u00E1quina (tybo)",1],["Jam\u00F3n cocido",1],["Palta",0.67],["Huevo entero",2]]},{"id":"bm-parque","name":"Del Parque","items":[["Queso untable Finlandia Light",1],["Pan integral Fargo",2],["Jam\u00F3n cocido",1],["Queso pategr\u00E1s",1],["Palta",1],["Huevo entero",2]]},{"id":"bm-madeleine","name":"La Madeleine","items":[["Huevo entero",2],["Queso untable Finlandia Light",1],["Jam\u00F3n cocido",1],["Queso barra / de m\u00E1quina (tybo)",1],["Pan integral Fargo",2],["Leche descremada",1]]},{"id":"bm-pollo-papa","name":"Pollo con papa","items":[["Pechuga de pollo (cruda)",2],["Papa (cruda)",2],["Tomates cherry",1]]},{"id":"bm-pollo-camote","name":"Pollo con camote","items":[["Pechuga de pollo (cruda)",2],["Batata / camote (crudo)",2],["Tomates cherry",1]]},{"id":"bm-pollo-mix","name":"Pollo con papa y camote","items":[["Pechuga de pollo (cruda)",2],["Papa (cruda)",1],["Batata / camote (crudo)",1],["Tomates cherry",1]]},{"id":"bm-pollo-fideos","name":"Pollo con fideos proteicos","items":[["Pechuga de pollo (cruda)",2],["Fideos Prote\u00EDna Plus Matarazzo (crudos)",0.75],["Tomates cherry",1]]},{"id":"bm-pollo-calabaza","name":"Pollo con calabaza","items":[["Pechuga de pollo (cruda)",2],["Calabaza (cruda)",3.5],["Tomates cherry",1]]},{"id":"bm-carne-papa","name":"Carne con papa","items":[["Colita de cuadril (cruda)",2],["Papa (cruda)",2],["Tomates cherry",1]]},{"id":"bm-carne-camote","name":"Carne con camote","items":[["Colita de cuadril (cruda)",2],["Batata / camote (crudo)",2],["Tomates cherry",1]]},{"id":"bm-carne-mix","name":"Carne con papa y camote","items":[["Colita de cuadril (cruda)",2],["Papa (cruda)",1],["Batata / camote (crudo)",1],["Tomates cherry",1]]},{"id":"bm-carne-fideos","name":"Carne con fideos proteicos","items":[["Colita de cuadril (cruda)",2],["Fideos Prote\u00EDna Plus Matarazzo (crudos)",0.75],["Tomates cherry",1]]},{"id":"bm-carne-calabaza","name":"Carne con calabaza","items":[["Colita de cuadril (cruda)",2],["Calabaza (cruda)",3.5],["Tomates cherry",1]]}];
 const MEALS=[['desayuno','Desayuno'],['almuerzo','Almuerzo'],['merienda','Merienda'],['cena','Cena']];
 const PRESET_ROUTINES=[
@@ -688,6 +688,28 @@ async function applyWorkoutImport(rows){const by={};rows.forEach(x=>{(by['w-'+x.
     const order=(routineById(g.rid).exercises||[]);cur.exercises.sort((a,b)=>{const ia=order.indexOf(a.name),ib=order.indexOf(b.name);return (ia<0?99:ia)-(ib<0?99:ib)});
     await save(id,cur)}
   return Object.keys(by).length}
+/* ---------- importar comidas ---------- */
+function mealFromText(t){t=norm(t);const m=MEALS.find(([k,l])=>norm(l)===t||k===t||norm(l).startsWith(t));return m?m[0]:null}
+function findFoodOrMeal(name){const n=norm(name).trim();
+  let f=allFoods().find(x=>norm(x.name)===n);if(f)return{food:f};
+  let m=allMeals().find(x=>norm(x.name)===n);if(m)return{meal:m};
+  const fs=allFoods().filter(x=>norm(x.name).includes(n));if(fs.length===1)return{food:fs[0]};
+  const ms=allMeals().filter(x=>norm(x.name).includes(n));if(ms.length===1)return{meal:ms[0]};return null}
+function parseMealImport(txt){const rows=[],bad=[];
+  txt.split(/\r?\n/).map(l=>l.trim()).filter(Boolean).forEach(line=>{
+    if(/^fecha/i.test(line))return;const p=line.split(/[;\t|]/).map(x=>x.trim());
+    const d=parseDate(p[0]||''),meal=mealFromText(p[1]||''),hit=p[2]?findFoodOrMeal(p[2]):null;
+    if(!d||!meal||!hit){bad.push(line);return}
+    const qm=String(p[3]||'1').replace(/\s/g,'').match(/^(\d+(?:[.,]\d+)?)(g|ml)?$/i);if(!qm){bad.push(line);return}
+    const v=num(qm[1]);let items;
+    if(hit.food){let q=v;if(qm[2]){const b=portionBase(hit.food.portion);if(!b){bad.push(line);return}q=v/b.amt}
+      items=[mealItemFrom(hit.food,Math.round(q*1000)/1000)]}
+    else{if(qm[2]){bad.push(line);return}items=hit.meal.items.map(it=>({...clone(it),qty:Math.round((it.qty??1)*v*1000)/1000}))}
+    rows.push({date:d,meal,label:(hit.food||hit.meal).name,amt:p[3]||'1',items})});
+  return{rows,bad,days:new Set(rows.map(r=>r.date)).size}}
+async function applyMealImport(rows){const by={};rows.forEach(r=>{(by[r.date]||(by[r.date]=[])).push(r)});
+  for(const [d,rs] of Object.entries(by)){const day=getDay(d);rs.forEach(r=>r.items.forEach(it=>day.meals[r.meal].push(it)));await save('d-'+d,day)}
+  return Object.keys(by).length}
 /* ---------- importar ---------- */
 function parseDate(s){s=s.trim();let m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);if(m)return `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
   m=s.match(/^(\d{1,2})[\/\-.](\d{1,2})(?:[\/\-.](\d{2,4}))?$/);if(!m)return null;
@@ -809,7 +831,8 @@ function viewAjustes(){
   h+=hd('alimentos',`Alimentos (${S.foods.length} tuyos \u00B7 ${BASE_FOODS.length} de la lista base)`);
   if(op('alimentos'))h+=`<div class="card">
     <div class="row"><input id="libq" placeholder="Buscar\u2026" value="${esc(S.libq)}"><button class="btn sm" data-act="food-new">+ Nuevo</button></div>
-    <div id="liblist">${libRows(libList())}</div><div class="mut small" style="margin-top:8px">Si edit\u00E1s uno de la lista base se guarda una copia tuya con tus valores.</div></div>`;
+    <div id="liblist">${libRows(libList())}</div><div class="mut small" style="margin-top:8px">Si edit\u00E1s uno de la lista base se guarda una copia tuya con tus valores.</div>
+    <div style="margin-top:8px"><button class="btn sec2" data-act="mimport-open">Importar comidas</button></div></div>`;
   h+=hd('comidas',`Comidas guardadas (${allMeals().length})`);
   if(op('comidas'))h+=`<div class="card">${allMeals().length?allMeals().map(t=>`<div class="frow" data-act="tpl-edit" data-id="${t.id}">${foodIcon(t.items[0]?.name||'')}<div class="sp"><div style="font-weight:600">${esc(t.name)}</div><div class="mline">${t.items.length} alimentos \u00B7 ${fmt(sumItems(t.items).kcal)} kcal</div></div><span class="mut">\u203A</span></div>`).join('')
     :'<div class="empty">Se guardan desde la pantalla Hoy con \u00AB\u2606 Guardar comida\u00BB.</div>'}</div>`;
@@ -902,6 +925,14 @@ function renderSheet(){
       ${r?`<div class="card" style="margin-top:12px;background:var(--card2)"><b>${r.sessions}</b> sesiones \u00B7 <b>${r.rows.length}</b> ejercicios${r.bad.length?` \u00B7 <span style="color:var(--bad)">${r.bad.length} ${r.bad.length===1?'l\u00EDnea':'l\u00EDneas'} con error</span>`:''}
         ${r.bad.slice(0,4).map(l=>`<div class="mline" style="color:var(--bad)">\u2717 ${esc(l)}</div>`).join('')}</div>
         ${r.rows.length?`<button class="btn" data-act="wimport-go">Importar</button><div class="mut small" style="margin-top:6px">Si un d\u00EDa ya ten\u00EDa ese ejercicio, se reemplaza.</div>`:''}`:''}`}
+  else if(s.type==='mimport'){title='Importar comidas';const r=s.res;
+    body=`<div class="mut small">Una línea por alimento o comida guardada:<br><b>fecha; comida; alimento; cantidad</b><br>Cantidad en unidades/porciones (<b>2</b>) o en gramos (<b>60g</b>). Ej:<br><code>21/11/2026; desayuno; Huevo entero; 2</code></div>
+      <textarea id="mimptxt" rows="8" style="margin-top:10px;font-family:monospace;font-size:12px">${esc(s.txt||'')}</textarea>
+      <div style="margin-top:10px"><button class="btn sec2" data-act="mimport-check">Revisar</button></div>
+      ${r?`<div class="card" style="margin-top:12px;background:var(--card2)"><b>${r.days}</b> días · <b>${r.rows.length}</b> líneas${r.bad.length?` · <span style="color:var(--bad)">${r.bad.length} con error</span>`:''}
+        ${r.rows.map(x=>`<div class="mline" style="margin-top:4px">${prettyDate(x.date)} · ${MEALS.find(m=>m[0]===x.meal)[1]}: ${esc(x.label)} × ${esc(x.amt)} · ${Math.round(x.items.reduce((a,it)=>a+itemTot(it).kcal,0))} kcal</div>`).join('')}
+        ${r.bad.map(l=>`<div class="mline" style="color:var(--bad)">✗ ${esc(l)}</div>`).join('')}</div>
+        ${r.rows.length&&!r.bad.length?`<button class="btn" data-act="mimport-go">Importar</button><div class="mut small" style="margin-top:6px">Se suman a lo que ya haya en esos días.</div>`:''}`:''}`}
   else if(s.type==='restore'){title='Restaurar respaldo';
     body=`<div class="mut small">Peg\u00E1 el respaldo copiado${IS_PWA?' o eleg\u00ED el archivo descargado':''}. Se suma a lo que ya ten\u00E9s (los d\u00EDas repetidos se reemplazan).</div>
       ${IS_PWA?`<label class="lb">Archivo</label><input type="file" id="rstfile" accept=".json,application/json,text/plain">`:''}
@@ -1073,6 +1104,9 @@ document.addEventListener('click',async ev=>{
     case 'close':closeSheet();break;
     case 'do-update':location.reload();break;
     case 'preset-routines':{if(!el.dataset.sure){el.dataset.sure='1';el.textContent='Toc\u00E1 de nuevo: reemplaza las 4 rutinas';return}save('config',presetConfig(S.config));S.wdraft={};S.cfgDraft=null;render();toast('Rutinas cargadas');break}
+    case 'mimport-open':openSheet({type:'mimport',txt:''});break;
+    case 'mimport-check':{s.txt=$('#mimptxt').value;s.res=parseMealImport(s.txt);renderSheet();break}
+    case 'mimport-go':{el.disabled=true;el.textContent='Importando\u2026';const n=await applyMealImport(s.res.rows);closeSheet();S.tab='hoy';render();toast(`Comidas de ${n} d\u00EDas importadas`);break}
     case 'wimport-open':openSheet({type:'wimport',txt:''});break;
     case 'wimport-check':{s.txt=$('#wimptxt').value;s.res=parseWorkoutImport(s.txt);renderSheet();break}
     case 'wimport-go':{el.disabled=true;el.textContent='Importando\u2026';const n=await applyWorkoutImport(s.res.rows);S.wdraft={};closeSheet();S.tab='entreno';render();toast(`${n} sesiones importadas`);break}
